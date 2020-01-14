@@ -6,12 +6,12 @@ interface SimpleFolderDescriptor {
 }
 
 function toFolderDescriptor(folderPath?: string): SimpleFolderDescriptor {
-	folderPath = folderPath || '.';
+	folderPath = folderPath ?? '.';
 	if (jetpack.exists(folderPath) !== 'dir') {
 		throw new Error(`'${jetpack.path(folderPath)}' either does not exist or is not a directory.`);
 	}
 
-	const files = jetpack.list(folderPath || '.') as string[];
+	const files = jetpack.list(folderPath) as string[];
 	const result: SimpleFolderDescriptor = {};
 	for (const file of files) {
 		result[file] = jetpack.exists(file);
