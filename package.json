@@ -15,7 +15,7 @@
 		"build": "del-cli dist && tsc",
 		"prepack": "npm run build",
 		"release": "np",
-		"test": "tsc && xo && ava"
+		"test": "tsc && xo && ava --verbose"
 	},
 	"main": "dist/source",
 	"types": "dist/source",
