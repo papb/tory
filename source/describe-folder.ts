@@ -72,7 +72,7 @@ function describeFileAssumingExistence(filePath: string): File {
 	return result;
 }
 
-interface DescribeFolderAssumingExistenceOptions {
+export interface DescribeFolderOptions {
 	maxDepth?: number;
 	skipSubfolder?(name: string, absolutePath: string): boolean;
 }
@@ -90,7 +90,7 @@ function defaultSkipSubfolder(name: string): boolean {
 	return ['.git', 'node_modules'].includes(name);
 }
 
-function describeFolderAssumingExistence(folderAbsolutePath: string, options: DescribeFolderAssumingExistenceOptions): Folder {
+function describeFolderAssumingExistence(folderAbsolutePath: string, options: DescribeFolderOptions): Folder {
 	const maxDepth = options.maxDepth ?? Infinity;
 	const skipSubfolder = options.skipSubfolder ?? defaultSkipSubfolder;
 
@@ -170,7 +170,7 @@ function describeFolderAssumingExistence(folderAbsolutePath: string, options: De
 	return result;
 }
 
-export function describeFolder(folderPath: string, options?: DescribeFolderAssumingExistenceOptions): Folder {
+export function describeFolder(folderPath: string, options?: DescribeFolderOptions): Folder {
 	const folderAbsolutePath = jetpack.path(folderPath);
 	if (jetpack.exists(folderAbsolutePath) !== 'dir') {
 		const e = new Error(`Folder "${folderAbsolutePath}" not found.`) as ErrorWithCode;
