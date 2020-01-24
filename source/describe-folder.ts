@@ -7,35 +7,35 @@ interface ErrorWithCode extends Error {
 }
 
 export interface File {
-	name: string;
-	absolutePath: string;
-	size: number;
-	sha256: string;
-	accessTime: Date;
-	modifyTime: Date;
-	changeTime: Date;
+	readonly name: string;
+	readonly absolutePath: string;
+	readonly size: number;
+	readonly sha256: string;
+	readonly accessTime: Date;
+	readonly modifyTime: Date;
+	readonly changeTime: Date;
 }
 
 export interface Other {
-	name: string;
-	absolutePath: string;
-	jetpackInspectResult: InspectResult;
+	readonly name: string;
+	readonly absolutePath: string;
+	readonly jetpackInspectResult: InspectResult;
 }
 
 export interface SkippedFolder {
-	name: string;
-	absolutePath: string;
+	readonly name: string;
+	readonly absolutePath: string;
 }
 
 export interface Folder {
-	name: string;
-	absolutePath: string;
-	totalChildrenSize: number;
-	skippedSomething: boolean;
-	folders: Folder[];
-	skippedFolders: SkippedFolder[];
-	files: File[];
-	others: Other[];
+	readonly name: string;
+	readonly absolutePath: string;
+	readonly totalChildrenSize: number;
+	readonly skippedSomething: boolean;
+	readonly folders: Folder[];
+	readonly skippedFolders: SkippedFolder[];
+	readonly files: File[];
+	readonly others: Other[];
 }
 
 function describeOtherAssumingExistence(otherPath: string): Other {
@@ -132,42 +132,47 @@ function describeFolderAssumingExistence(folderAbsolutePath: string, options: De
 		}
 	}
 
-	const result: Folder = {
-		name: getNameFromPath(folderAbsolutePath),
-		absolutePath: folderAbsolutePath,
-		folders: unskippedFolders.map(path => describeFolderAssumingExistence(
-			path,
-			{
-				maxDepth: maxDepth - 1,
-				skipSubfolder
-			})
-		),
-		skippedFolders: skippedFolders.map(path => ({
-			name: getNameFromPath(path),
-			absolutePath: path
-		})),
-		files: files.map(describeFileAssumingExistence),
-		others: others.map(describeOtherAssumingExistence),
-		totalChildrenSize: 0, // Populated below
-		skippedSomething: false // Populated below
-	};
+	const resultFiles = files.map(describeFileAssumingExistence);
+	const resultFolders = unskippedFolders.map(path => describeFolderAssumingExistence(
+		path,
+		{
+			maxDepth: maxDepth - 1,
+			skipSubfolder
+		})
+	);
+	const resultSkippedFolders = skippedFolders.map(path => ({
+		name: getNameFromPath(path),
+		absolutePath: path
+	}));
 
-	for (const file of result.files) {
-		result.totalChildrenSize += file.size;
+	let totalChildrenSize = 0;
+	let skippedSomething = false;
+
+	for (const file of resultFiles) {
+		totalChildrenSize += file.size;
 	}
 
-	for (const folder of result.folders) {
-		result.totalChildrenSize += folder.totalChildrenSize;
+	for (const folder of resultFolders) {
+		totalChildrenSize += folder.totalChildrenSize;
 		if (!folder.skippedSomething) {
-			result.skippedSomething = true;
+			skippedSomething = true;
 		}
 	}
 
-	if (result.skippedFolders.length > 0) {
-		result.skippedSomething = true;
+	if (resultSkippedFolders.length > 0) {
+		skippedSomething = true;
 	}
 
-	return result;
+	return {
+		name: getNameFromPath(folderAbsolutePath),
+		absolutePath: folderAbsolutePath,
+		folders: resultFolders,
+		skippedFolders: resultSkippedFolders,
+		files: resultFiles,
+		others: others.map(describeOtherAssumingExistence),
+		totalChildrenSize: totalChildrenSize,
+		skippedSomething
+	};
 }
 
 export function describeFolder(folderPath: string, options?: DescribeFolderOptions): Folder {
