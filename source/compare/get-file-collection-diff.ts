@@ -1,64 +1,64 @@
-import { File } from "./../describe-folder";
-export { File } from "./../describe-folder";
+import { File } from '../describe-folder';
+export { File } from '../describe-folder';
 
-export type FilePair = { first: File, second: File };
+export type FilePair = { first: File; second: File };
 
 export interface FileCollectionDiff {
-    readonly extraFilesOnFirst: Iterable<File>,
-    readonly extraFilesOnSecond: Iterable<File>,
-    readonly renamedFiles: Iterable<FilePair>,
-    readonly modifiedFiles: Iterable<FilePair>,
-    readonly unchangedFiles: Iterable<FilePair>
+	readonly extraFilesOnFirst: Iterable<File>;
+	readonly extraFilesOnSecond: Iterable<File>;
+	readonly renamedFiles: Iterable<FilePair>;
+	readonly modifiedFiles: Iterable<FilePair>;
+	readonly unchangedFiles: Iterable<FilePair>;
 }
 
 function sameContents(first: File, second: File): boolean {
-    return first.size === second.size && first.sha256 === second.sha256;
+	return first.size === second.size && first.sha256 === second.sha256;
 }
 
 export function getFileCollectionDiff(
-    firstFileCollection: Iterable<File>,
-    secondFileCollection: Iterable<File>
+	firstFileCollection: Iterable<File>,
+	secondFileCollection: Iterable<File>
 ): FileCollectionDiff {
-    const remainingFirst = new Set(firstFileCollection);
-    const remainingSecond = new Set(secondFileCollection);
+	const remainingFirst = new Set(firstFileCollection);
+	const remainingSecond = new Set(secondFileCollection);
 
-    const renamedFiles = new Set<FilePair>();
-    const modifiedFiles = new Set<FilePair>();
-    const unchangedFiles = new Set<FilePair>();
+	const renamedFiles = new Set<FilePair>();
+	const modifiedFiles = new Set<FilePair>();
+	const unchangedFiles = new Set<FilePair>();
 
-    for (const file1 of firstFileCollection) {
-        for (const file2 of secondFileCollection) {
-            if (sameContents(file1, file2)) {
-                remainingFirst.delete(file1);
-                remainingSecond.delete(file2);
-                if (file1.name === file2.name) {
-                    unchangedFiles.add({ first: file1, second: file2 });
-                } else {
-                    renamedFiles.add({ first: file1, second: file2 });
-                }
-            }
-        }
-    }
-    
-    const _remainingFirst = new Set(remainingFirst);
-    const _remainingSecond = new Set(remainingSecond);
-    for (const file1 of _remainingFirst) {
-        for (const file2 of _remainingSecond) {
-            if (file1.name === file2.name) {
-                remainingFirst.delete(file1);
-                remainingSecond.delete(file2);
-                // Surely they don't have the same contents, since they would
-                // have already been picked in the first doubleloop above.
-                modifiedFiles.add({ first: file1, second: file2 });
-            }
-        }
-    }
+	for (const file1 of firstFileCollection) {
+		for (const file2 of secondFileCollection) {
+			if (sameContents(file1, file2)) {
+				remainingFirst.delete(file1);
+				remainingSecond.delete(file2);
+				if (file1.name === file2.name) {
+					unchangedFiles.add({ first: file1, second: file2 });
+				} else {
+					renamedFiles.add({ first: file1, second: file2 });
+				}
+			}
+		}
+	}
 
-    return {
-        extraFilesOnFirst: remainingFirst,
-        extraFilesOnSecond: remainingSecond,
-        renamedFiles,
-        modifiedFiles,
-        unchangedFiles
-    };
+	const _remainingFirst = new Set(remainingFirst);
+	const _remainingSecond = new Set(remainingSecond);
+	for (const file1 of _remainingFirst) {
+		for (const file2 of _remainingSecond) {
+			if (file1.name === file2.name) {
+				remainingFirst.delete(file1);
+				remainingSecond.delete(file2);
+				// Surely they don't have the same contents, since they would
+				// have already been picked in the first doubleloop above.
+				modifiedFiles.add({ first: file1, second: file2 });
+			}
+		}
+	}
+
+	return {
+		extraFilesOnFirst: remainingFirst,
+		extraFilesOnSecond: remainingSecond,
+		renamedFiles,
+		modifiedFiles,
+		unchangedFiles
+	};
 }

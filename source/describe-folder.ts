@@ -170,7 +170,7 @@ function describeFolderAssumingExistence(folderAbsolutePath: string, options: De
 		skippedFolders: resultSkippedFolders,
 		files: resultFiles,
 		others: others.map(describeOtherAssumingExistence),
-		totalChildrenSize: totalChildrenSize,
+		totalChildrenSize,
 		skippedSomething
 	};
 }
