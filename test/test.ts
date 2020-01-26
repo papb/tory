@@ -16,7 +16,7 @@ test('describeFolder', t => {
 	t.true(result.folders.some(folder => folder.name === 'source'));
 	t.false(result.folders.some(folder => folder.name === 'node_modules'));
 	t.true(result.skippedFolders.some(folder => folder.name === 'node_modules'));
-	t.true(result.skippedSomething);
+	t.true(result.hasDeepSkippedFolder);
 });
 
 test('compareFilesInFolders', t => {

@@ -1,14 +1,20 @@
 import jetpack = require('fs-jetpack');
-import { sep } from 'path';
+import { basename, relative } from 'path';
 import { InspectResult } from 'fs-jetpack/types';
+import { getCategorizedPathsFromFolderAssumingExistence } from './helpers/folder-inspector';
 
 interface ErrorWithCode extends Error {
 	code: string;
 }
 
-export interface File {
+/* Anything that is a File, Folder, Other, Etc */
+export interface Filer {
 	readonly name: string;
+	readonly relativePath: string;
 	readonly absolutePath: string;
+}
+
+export interface File extends Filer {
 	readonly size: number;
 	readonly sha256: string;
 	readonly accessTime: Date;
@@ -16,51 +22,42 @@ export interface File {
 	readonly changeTime: Date;
 }
 
-export interface Other {
-	readonly name: string;
-	readonly absolutePath: string;
+export interface Other extends Filer {
 	readonly jetpackInspectResult: InspectResult;
 }
 
-export interface SkippedFolder {
-	readonly name: string;
-	readonly absolutePath: string;
-}
+export interface SkippedFolder extends Filer {}
 
-export interface Folder {
-	readonly name: string;
-	readonly absolutePath: string;
+export interface Folder extends Filer {
 	readonly totalChildrenSize: number;
-	readonly skippedSomething: boolean;
+	readonly hasDeepSkippedFolder: boolean;
 	readonly folders: Folder[];
 	readonly skippedFolders: SkippedFolder[];
 	readonly files: File[];
 	readonly others: Other[];
 }
 
-function describeOtherAssumingExistence(otherPath: string): Other {
-	const inspection = jetpack.inspect(otherPath, {
-		checksum: 'sha256',
-		times: true
-	}) as InspectResult;
-
-	const result: Other = {
-		name: getNameFromPath(otherPath),
+function describeOtherAssumingExistence(otherPath: string, referencePath: string): Other {
+	return {
+		name: basename(otherPath),
+		relativePath: relative(referencePath, otherPath),
 		absolutePath: otherPath,
-		jetpackInspectResult: inspection
+		jetpackInspectResult: jetpack.inspect(otherPath, {
+			checksum: 'sha256',
+			times: true
+		}) as InspectResult
 	};
-
-	return result;
 }
 
-function describeFileAssumingExistence(filePath: string): File {
+function describeFileAssumingExistence(filePath: string, referencePath: string): File {
 	const inspection = jetpack.inspect(filePath, {
 		checksum: 'sha256',
 		times: true
 	}) as InspectResult;
 
-	const result: File = {
-		name: inspection.name,
+	return {
+		name: basename(filePath),
+		relativePath: relative(referencePath, filePath),
 		absolutePath: filePath,
 		size: inspection.size,
 		sha256: inspection.sha256 as string,
@@ -68,8 +65,6 @@ function describeFileAssumingExistence(filePath: string): File {
 		modifyTime: inspection.modifyTime as Date,
 		changeTime: inspection.changeTime as Date
 	};
-
-	return result;
 }
 
 export interface DescribeFolderOptions {
@@ -77,54 +72,25 @@ export interface DescribeFolderOptions {
 	skipSubfolder?(name: string, absolutePath: string): boolean;
 }
 
-function getNameFromPath(path: string): string {
-	const lastIndex = path.lastIndexOf(sep);
-	if (lastIndex === -1) {
-		return path;
-	}
-
-	return path.slice(lastIndex + 1);
-}
-
 function defaultSkipSubfolder(name: string): boolean {
 	return ['.git', 'node_modules'].includes(name);
 }
 
-function describeFolderAssumingExistence(folderAbsolutePath: string, options: DescribeFolderOptions): Folder {
+function describeFolderAssumingExistence(
+	folderAbsolutePath: string,
+	referenceForRelativePaths: string,
+	options: DescribeFolderOptions
+): Folder {
 	const maxDepth = options.maxDepth ?? Infinity;
 	const skipSubfolder = options.skipSubfolder ?? defaultSkipSubfolder;
 
-	const names = jetpack.list(folderAbsolutePath) as string[];
-	const paths = names.map(name => jetpack.path(folderAbsolutePath, name));
-	paths.sort((a, b) => {
-		a = a.toUpperCase();
-		b = b.toUpperCase();
-		if (a < b) {
-			return -1;
-		}
-
-		return a > b ? 1 : 0;
-	});
-
-	const folders: string[] = [];
-	const files: string[] = [];
-	const others: string[] = [];
-	for (const path of paths) {
-		const type = jetpack.exists(path);
-		if (type === 'dir') {
-			folders.push(path);
-		} else if (type === 'file') {
-			files.push(path);
-		} else {
-			others.push(path);
-		}
-	}
+	const contentPaths = getCategorizedPathsFromFolderAssumingExistence(folderAbsolutePath);
 
 	const unskippedFolders: string[] = [];
-	const skippedFolders: string[] = maxDepth === 0 ? folders : [];
+	const skippedFolders: string[] = maxDepth === 0 ? contentPaths.folderPaths : [];
 	if (maxDepth > 0) {
-		for (const folder of folders) {
-			if (skipSubfolder(getNameFromPath(folder), folder)) {
+		for (const folder of contentPaths.folderPaths) {
+			if (skipSubfolder(basename(folder), folder)) {
 				skippedFolders.push(folder);
 			} else {
 				unskippedFolders.push(folder);
@@ -132,21 +98,25 @@ function describeFolderAssumingExistence(folderAbsolutePath: string, options: De
 		}
 	}
 
-	const resultFiles = files.map(describeFileAssumingExistence);
+	const resultFiles = contentPaths.filePaths.map(path => {
+		return describeFileAssumingExistence(path, referenceForRelativePaths);
+	});
 	const resultFolders = unskippedFolders.map(path => describeFolderAssumingExistence(
 		path,
+		referenceForRelativePaths,
 		{
 			maxDepth: maxDepth - 1,
 			skipSubfolder
 		})
 	);
 	const resultSkippedFolders = skippedFolders.map(path => ({
-		name: getNameFromPath(path),
+		name: basename(path),
+		relativePath: relative(referenceForRelativePaths, path),
 		absolutePath: path
 	}));
 
 	let totalChildrenSize = 0;
-	let skippedSomething = false;
+	let hasDeepSkippedFolder = false;
 
 	for (const file of resultFiles) {
 		totalChildrenSize += file.size;
@@ -154,24 +124,28 @@ function describeFolderAssumingExistence(folderAbsolutePath: string, options: De
 
 	for (const folder of resultFolders) {
 		totalChildrenSize += folder.totalChildrenSize;
-		if (!folder.skippedSomething) {
-			skippedSomething = true;
+		if (!folder.hasDeepSkippedFolder) {
+			hasDeepSkippedFolder = true;
 		}
 	}
 
 	if (resultSkippedFolders.length > 0) {
-		skippedSomething = true;
+		hasDeepSkippedFolder = true;
 	}
 
 	return {
-		name: getNameFromPath(folderAbsolutePath),
+		name: basename(folderAbsolutePath),
+		relativePath: relative(referenceForRelativePaths, folderAbsolutePath),
 		absolutePath: folderAbsolutePath,
 		folders: resultFolders,
 		skippedFolders: resultSkippedFolders,
 		files: resultFiles,
-		others: others.map(describeOtherAssumingExistence),
+		others: contentPaths.otherPaths.map(path => describeOtherAssumingExistence(
+			path,
+			referenceForRelativePaths
+		)),
 		totalChildrenSize,
-		skippedSomething
+		hasDeepSkippedFolder
 	};
 }
 
@@ -183,5 +157,5 @@ export function describeFolder(folderPath: string, options?: DescribeFolderOptio
 		throw e;
 	}
 
-	return describeFolderAssumingExistence(folderAbsolutePath, options ?? {});
+	return describeFolderAssumingExistence(folderAbsolutePath, folderAbsolutePath, options ?? {});
 }
