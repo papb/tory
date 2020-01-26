@@ -1,21 +1,16 @@
 import jetpack = require('fs-jetpack');
-import { sortLexicographically } from './sort-lexicographically';
+import { sortLexicographically } from '../helpers/sort-lexicographically';
+import { CategorizedPaths } from '../types';
 
-export interface CategorizedAbsolutePaths {
-	readonly folderPaths: string[];
-	readonly filePaths: string[];
-	readonly otherPaths: string[];
-}
-
-export function listAbsolutePathsInFolderAssumingExistence(folderAbsolutePath: string): string[] {
+function getChildrenAbsolutePaths(folderAbsolutePath: string): string[] {
 	const names = jetpack.list(folderAbsolutePath) as string[];
 	const paths = names.map(name => jetpack.path(folderAbsolutePath, name));
 	sortLexicographically(paths);
 	return paths;
 }
 
-export function getCategorizedPathsFromFolderAssumingExistence(folderAbsolutePath: string): CategorizedAbsolutePaths {
-	const absolutePaths = listAbsolutePathsInFolderAssumingExistence(folderAbsolutePath);
+export function getCategorizedChildrenAbsolutePathsAssumingExistence(folderAbsolutePath: string): CategorizedPaths {
+	const absolutePaths = getChildrenAbsolutePaths(folderAbsolutePath);
 
 	const folders: string[] = [];
 	const files: string[] = [];
@@ -34,6 +29,7 @@ export function getCategorizedPathsFromFolderAssumingExistence(folderAbsolutePat
 	return {
 		folderPaths: folders,
 		filePaths: files,
-		otherPaths: others
+		otherPaths: others,
+		allPaths: absolutePaths
 	};
 }

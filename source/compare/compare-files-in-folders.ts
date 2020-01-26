@@ -1,9 +1,9 @@
-import { describeFolder } from '../describe-folder';
-import { getFileCollectionDiff, FileCollectionDiff } from './get-file-collection-diff';
+import { describeFolderAssumingExistence } from '../describe/describe-folder';
+import { FileCollectionDiff } from '../types';
+import { getFileCollectionDiff } from './get-file-collection-diff';
 
-export function compareFilesInFolders(firstFolderPath: string, secondFolderPath: string): FileCollectionDiff {
-	// DescribeFolder already checks for existence
-	const beforeDescription = describeFolder(firstFolderPath, { maxDepth: 0 });
-	const afterDescription = describeFolder(secondFolderPath, { maxDepth: 0 });
+export function compareFilesInFoldersAssumingExistence(firstFolderPath: string, secondFolderPath: string): FileCollectionDiff {
+	const beforeDescription = describeFolderAssumingExistence(firstFolderPath, firstFolderPath, { maxDepth: 0 });
+	const afterDescription = describeFolderAssumingExistence(secondFolderPath, secondFolderPath, { maxDepth: 0 });
 	return getFileCollectionDiff(beforeDescription.files, afterDescription.files);
 }

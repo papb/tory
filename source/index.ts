@@ -1,7 +1,7 @@
-import { describeFolder } from './describe-folder';
-import { compareFilesInFolders } from './compare/compare-files-in-folders';
+import { describeFolder, describeFile, getCategorizedChildrenPaths } from './describe';
+import { compareFilesInFolders } from './compare';
 
-const tory = { describeFolder, compareFilesInFolders };
+const tory = { describeFolder, describeFile, getCategorizedChildrenPaths, compareFilesInFolders };
 
 export default tory;
 

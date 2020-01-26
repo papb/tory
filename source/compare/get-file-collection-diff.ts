@@ -1,15 +1,5 @@
-import { File } from '../describe-folder';
-export { File } from '../describe-folder';
-
-export type FilePair = { first: File; second: File };
-
-export interface FileCollectionDiff {
-	readonly extraFilesOnFirst: Iterable<File>;
-	readonly extraFilesOnSecond: Iterable<File>;
-	readonly renamedFiles: Iterable<FilePair>;
-	readonly modifiedFiles: Iterable<FilePair>;
-	readonly unchangedFiles: Iterable<FilePair>;
-}
+import { File, FilePair, FileCollectionDiff } from '../types';
+export { File } from '../types';
 
 function sameContents(first: File, second: File): boolean {
 	return first.size === second.size && first.sha256 === second.sha256;
