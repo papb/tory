@@ -21,7 +21,7 @@ export function getFileCollectionDiff(
 			if (sameContents(file1, file2)) {
 				remainingFirst.delete(file1);
 				remainingSecond.delete(file2);
-				if (file1.name === file2.name) {
+				if (file1.relativePath === file2.relativePath) {
 					unchangedFiles.add({ first: file1, second: file2 });
 				} else {
 					renamedFiles.add({ first: file1, second: file2 });
@@ -34,7 +34,7 @@ export function getFileCollectionDiff(
 	const _remainingSecond = new Set(remainingSecond);
 	for (const file1 of _remainingFirst) {
 		for (const file2 of _remainingSecond) {
-			if (file1.name === file2.name) {
+			if (file1.relativePath === file2.relativePath) {
 				remainingFirst.delete(file1);
 				remainingSecond.delete(file2);
 				// Surely they don't have the same contents, since they would

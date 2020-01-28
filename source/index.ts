@@ -1,7 +1,14 @@
-import { describeFolder, describeFile, getCategorizedChildrenPaths } from './describe';
-import { compareFilesInFolders } from './compare';
+import { describeFolder } from './describe/describe-folder';
+import { describeFile } from './describe/describe-file';
+import { getCategorizedChildrenPaths } from './describe/get-categorized-children-paths';
+import { compareFilesInFolders } from './compare/compare-files-in-folders';
 
-const tory = { describeFolder, describeFile, getCategorizedChildrenPaths, compareFilesInFolders };
+const tory = {
+	describeFolder,
+	describeFile,
+	getCategorizedChildrenPaths,
+	compareFilesInFolders
+};
 
 export default tory;
 

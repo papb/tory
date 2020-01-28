@@ -1,25 +1,18 @@
+import jetpack = require('fs-jetpack');
 import { basename, relative } from 'path';
 import { Folder } from '../types';
+import { assertExistence } from '../helpers/assert-existence';
 import { describeFileAssumingExistence } from './describe-file';
 import { describeOtherAssumingExistence } from './describe-other';
 import { getCategorizedChildrenAbsolutePathsAssumingExistence } from './get-categorized-children-paths';
-
-export interface DescribeFolderOptions {
-	maxDepth?: number;
-	skipSubfolder?(name: string, absolutePath: string): boolean;
-}
-
-function defaultSkipSubfolder(name: string): boolean {
-	return ['.git', 'node_modules'].includes(name);
-}
+import { FolderRecursionOptions, expandFolderRecursionOptions } from './folder-recursion-options';
 
 export function describeFolderAssumingExistence(
 	folderAbsolutePath: string,
 	referenceForRelativePaths: string,
-	options: DescribeFolderOptions
+	options?: FolderRecursionOptions
 ): Folder {
-	const maxDepth = options.maxDepth ?? Infinity;
-	const skipSubfolder = options.skipSubfolder ?? defaultSkipSubfolder;
+	const { maxDepth, skipSubfolder } = expandFolderRecursionOptions(options);
 
 	const childrenPaths = getCategorizedChildrenAbsolutePathsAssumingExistence(folderAbsolutePath);
 
@@ -84,4 +77,10 @@ export function describeFolderAssumingExistence(
 		totalChildrenSize,
 		hasDeepSkippedFolder
 	};
+}
+
+export function describeFolder(folderPath: string, options?: FolderRecursionOptions): Folder {
+	assertExistence(folderPath, 'dir');
+	const folderAbsolutePath = jetpack.path(folderPath);
+	return describeFolderAssumingExistence(folderAbsolutePath, folderAbsolutePath, options);
 }

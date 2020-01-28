@@ -1,6 +1,7 @@
 import jetpack = require('fs-jetpack');
 import { sortLexicographically } from '../helpers/sort-lexicographically';
 import { CategorizedPaths } from '../types';
+import { assertExistence } from '../helpers/assert-existence';
 
 function getChildrenAbsolutePaths(folderAbsolutePath: string): string[] {
 	const names = jetpack.list(folderAbsolutePath) as string[];
@@ -32,4 +33,10 @@ export function getCategorizedChildrenAbsolutePathsAssumingExistence(folderAbsol
 		otherPaths: others,
 		allPaths: absolutePaths
 	};
+}
+
+export function getCategorizedChildrenPaths(folderPath: string): CategorizedPaths {
+	assertExistence(folderPath, 'dir');
+	const folderAbsolutePath = jetpack.path(folderPath);
+	return getCategorizedChildrenAbsolutePathsAssumingExistence(folderAbsolutePath);
 }
