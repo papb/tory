@@ -22,22 +22,22 @@ Output:
 
 ```jsonc
 {
-    "name": "cwd-folder-name",
-    "absolutePath": "/home/you/some/folder/cwd-folder-name",
-    "folders": [
-        /* an array of objects describing the children folders */
-    ],
-    "skippedFolders": [
-        /* an array of very simple objects describing the children folders that were skipped */
-    ],
-    "files": [
-        /* an array of objects describing the files in this folder */
-    ],
-    "others": [
-        /* an array of objects describing other objects in this folder (such as symlinks) */
-    ],
-    "totalChildrenSize": 6310936, // in bytes
-    "skippedSomething": true // whether or not some subfolder was skipped
+	"name": "cwd-folder-name",
+	"absolutePath": "/home/you/some/folder/cwd-folder-name",
+	"folders": [
+		/* an array of objects describing the children folders */
+	],
+	"skippedFolders": [
+		/* an array of very simple objects describing the children folders that were skipped */
+	],
+	"files": [
+		/* an array of objects describing the files in this folder */
+	],
+	"others": [
+		/* an array of objects describing other objects in this folder (such as symlinks) */
+	],
+	"totalChildrenSize": 6310936, // in bytes
+	"skippedSomething": true // whether or not some subfolder was skipped
 }
 ```
 
