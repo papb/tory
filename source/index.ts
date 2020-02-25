@@ -1,16 +1,9 @@
-import { describeFolder } from './describe/describe-folder';
-import { describeFile } from './describe/describe-file';
-import { getCategorizedChildrenPaths } from './describe/get-categorized-children-paths';
-import { compareFilesInFolders } from './compare/compare-files-in-folders';
-import { getAllFilesRecursively } from './describe/get-all-files-recursively';
+import { ToryFolder } from './tory-folder';
+export { ToryFolder } from './tory-folder';
+import { ToryFile } from './tory-file';
+export { ToryFile } from './tory-file';
 
-const tory = {
-	describeFolder,
-	describeFile,
-	getCategorizedChildrenPaths,
-	compareFilesInFolders,
-	getAllFilesRecursively
-};
+const tory = { ToryFile, ToryFolder };
 
 export default tory;
 
