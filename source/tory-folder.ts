@@ -6,7 +6,7 @@ import { ToryFile } from './tory-file';
 import { ToryFiler } from './helpers/tory-filer';
 import { iterableFromToryFolder, RecursionDecider } from './helpers/iterable-from-tory-folder';
 import { ToryFolderDiff } from './helpers/tory-folder-diff';
-import hasha = require('hasha');
+import { hashMultiple } from './helpers/hash-multiple';
 
 export class ToryFolder implements ToryFiler {
 	public readonly absolutePath: string;
@@ -16,8 +16,10 @@ export class ToryFolder implements ToryFiler {
 	private _shallowLoaded = false;
 	private readonly _subfolders: ToryFolder[] = [];
 	private readonly _files: ToryFile[] = [];
-	private _sha256?: string;
-	private _size?: number;
+	private _shallowHash?: string;
+	private _deepHash?: string;
+	private _shallowSize?: number;
+	private _deepSize?: number;
 
 	constructor(folderPath: string) {
 		const absolutePath = jetpack.path(folderPath);
@@ -44,30 +46,14 @@ export class ToryFolder implements ToryFiler {
 		return [...this];
 	}
 
-	getSha256(): string {
-		if (!this._sha256) {
-			const shas: string[] = ['tory-pepper'];
-			for (const filer of this) {
-				shas.push(filer.getSha256());
-			}
-
-			this._sha256 = hasha(shas.join(''), { algorithm: 'sha256' });
-		}
-
-		return this._sha256;
+	getHash({ deep = true } = {}): string {
+		// Note: don't change the default value of `deep` before looking at tory-filer.ts
+		return deep ? this._getDeepHash() : this._getShallowHash();
 	}
 
-	getSize(): number {
-		if (!this._size) {
-			let size = 0;
-			for (const filer of this) {
-				size += filer.getSize();
-			}
-
-			this._size = size;
-		}
-
-		return this._size;
+	getSize({ deep = true } = {}): number {
+		// Note: don't change the default value of `deep` before looking at tory-filer.ts
+		return deep ? this._getDeepSize() : this._getShallowSize();
 	}
 
 	* [Symbol.iterator](): IterableIterator<ToryFiler> {
@@ -102,8 +88,20 @@ export class ToryFolder implements ToryFiler {
 		return iterableFromToryFolder(this, decider);
 	}
 
-	compare(other: ToryFolder, recursionDecider?: RecursionDecider): ToryFolderDiff {
+	compareFilesShallow(other: ToryFolder): ToryFolderDiff {
+		return new ToryFolderDiff(this, other, () => 'yield');
+	}
+
+	compareFiles(other: ToryFolder, recursionDecider?: RecursionDecider): ToryFolderDiff {
 		return new ToryFolderDiff(this, other, recursionDecider);
+	}
+
+	sameContentsShallow(other: ToryFolder): boolean {
+		return this.getHash({ deep: false }) === other.getHash({ deep: false });
+	}
+
+	sameContentsDeep(other: ToryFolder): boolean {
+		return this.getHash({ deep: true }) === other.getHash({ deep: true });
 	}
 
 	private _shallowLoadIfNeeded(): void {
@@ -112,8 +110,8 @@ export class ToryFolder implements ToryFiler {
 		}
 
 		const childNames = jetpack.list(this.absolutePath)!;
-		const childPaths = childNames.map(name => jetpack.path(this.absolutePath, name));
-		sortLexicographically(childPaths);
+		let childPaths = childNames.map(name => jetpack.path(this.absolutePath, name));
+		childPaths = sortLexicographically(childPaths);
 
 		for (const path of childPaths) {
 			if (jetpack.exists(path) === 'dir') {
@@ -125,5 +123,82 @@ export class ToryFolder implements ToryFiler {
 		}
 
 		this._shallowLoaded = true;
+	}
+
+	private _computeShallowHashIfNeeded(): void {
+		if (this._shallowHash) {
+			return;
+		}
+
+		this._shallowLoadIfNeeded();
+
+		const fileNames = this._files.map(x => x.name);
+		const fileHashes = this._files.map(x => x.getHash());
+		const subfolderNames = this._subfolders.map(x => x.name);
+
+		this._shallowHash = hashMultiple(
+			hashMultiple(...fileNames),
+			hashMultiple(...fileHashes),
+			hashMultiple(...subfolderNames)
+		);
+	}
+
+	private _computeDeepHashIfNeeded(): void {
+		if (this._deepHash) {
+			return;
+		}
+
+		this._computeShallowHashIfNeeded();
+
+		this._deepHash = hashMultiple(
+			this._shallowHash!,
+			...this._subfolders.map(x => x.getHash({ deep: true }))
+		);
+	}
+
+	private _getShallowHash(): string {
+		this._computeShallowHashIfNeeded();
+		return this._shallowHash!;
+	}
+
+	private _getDeepHash(): string {
+		this._computeDeepHashIfNeeded();
+		return this._deepHash!;
+	}
+
+	private _computeShallowSizeIfNeeded(): void {
+		if (this._shallowSize) {
+			return;
+		}
+
+		this._shallowLoadIfNeeded();
+
+		this._shallowSize = 0;
+		for (const file of this._files) {
+			this._shallowSize += file.getSize();
+		}
+	}
+
+	private _computeDeepSizeIfNeeded(): void {
+		if (this._deepSize) {
+			return;
+		}
+
+		this._computeShallowSizeIfNeeded();
+
+		this._deepSize = this._shallowSize!;
+		for (const subfolder of this._subfolders) {
+			this._deepSize += subfolder.getSize({ deep: true });
+		}
+	}
+
+	private _getShallowSize(): number {
+		this._computeShallowSizeIfNeeded();
+		return this._shallowSize!;
+	}
+
+	private _getDeepSize(): number {
+		this._computeDeepSizeIfNeeded();
+		return this._deepSize!;
 	}
 }

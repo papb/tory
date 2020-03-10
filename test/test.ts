@@ -1,14 +1,32 @@
 import test from 'ava';
-import tory from '../source';
 import tempy = require('tempy');
+import pMap = require('p-map');
 import jetpack = require('fs-jetpack');
-import { sortLexicographically } from '../source/helpers/sort-lexicographically';
+import { JsonObject } from 'type-fest';
+import tory from '../source';
+import { sortLexicographically as sort } from '../source/helpers/sort-lexicographically';
 import { ToryFiler } from '../source/helpers/tory-filer';
+import { ToryFolderDiff } from '../source/helpers/tory-folder-diff';
+import { pRepeatLogging } from './helpers/p-repeat';
 import { attemptDelete } from './helpers/attempt-delete';
 import { getRandomTestFolder } from './helpers/get-random-test-folder';
 import { getTempJetpack } from './helpers/get-temp-jetpack';
+import { RandomStringBuilder } from './helpers/random-string-builder';
 
 const { ToryFolder, ToryFile } = tory;
+
+function simplifyToryDiff(result: ToryFolderDiff): JsonObject {
+	return {
+		extraFilesOnFirst: result.extraFilesOnFirst.map(x => x.name),
+		extraFilesOnSecond: result.extraFilesOnSecond.map(x => x.name),
+		modifiedFiles: result.modifiedFiles.map(x => x.first.name),
+		renamedFiles: result.renamedFiles.map(x => ({
+			first: x.first.name,
+			second: x.second.name
+		})),
+		unchangedFiles: result.unchangedFiles.map(x => x.first.name)
+	};
+}
 
 test('ToryFolder (constructor)', t => {
 	const result = new ToryFolder('.');
@@ -46,103 +64,190 @@ test('ToryFolder#toDefaultRecursiveIterable', async t => {
 	await attemptDelete(tempJetpack.cwd());
 });
 
-test('ToryFolder#compare', async t => {
-	const testFolder = jetpack.cwd(tempy.directory());
-	testFolder.write('folderA/file0.txt', `${Math.random()}`);
-	testFolder.write('folderA/file1.txt', `${Math.random()}`);
-	testFolder.write('folderA/file2.txt', `${Math.random()}`);
-	testFolder.write('folderA/file3.txt', `${Math.random()}`);
-	testFolder.write('folderB/file1.txt', `${Math.random()}`);
-	testFolder.write('folderB/file3.txt', `${Math.random()}`);
-	testFolder.copy('folderA/file0.txt', 'folderB/file0.txt');
-	testFolder.copy('folderA/file3.txt', 'folderB/file4.txt');
+test('ToryFolder#compareFilesShallow', async t => {
+	await pRepeatLogging(t, 100, async () => {
+		const randomStrings = new RandomStringBuilder(0);
 
-	const folderA = new ToryFolder(testFolder.path('folderA'));
-	const folderB = new ToryFolder(testFolder.path('folderB'));
+		const testFolder = jetpack.cwd(tempy.directory());
 
-	const result = folderA.compare(folderB);
+		const contentA = randomStrings.next();
+		const contentB = randomStrings.next();
+		const contentC = randomStrings.next();
 
-	const simplifiedResult = {
-		extraFilesOnFirst: result.extraFilesOnFirst.map(x => x.name),
-		extraFilesOnSecond: result.extraFilesOnSecond.map(x => x.name),
-		modifiedFiles: result.modifiedFiles.map(x => x.first.name),
-		renamedFiles: result.renamedFiles.map(x => ({
-			first: x.first.name,
-			second: x.second.name
-		})),
-		unchangedFiles: result.unchangedFiles.map(x => x.first.name)
-	};
+		testFolder.write('folderA/file0.txt', contentA);
+		testFolder.write('folderA/file1.txt', randomStrings.next());
+		testFolder.write('folderA/file2.txt', randomStrings.next());
+		testFolder.write('folderA/file3.txt', contentB);
 
-	t.deepEqual(simplifiedResult, {
-		extraFilesOnFirst: ['file2.txt'],
-		extraFilesOnSecond: ['file3.txt'],
-		modifiedFiles: ['file1.txt'],
-		renamedFiles: [{ first: 'file3.txt', second: 'file4.txt' }],
-		unchangedFiles: ['file0.txt']
+		testFolder.write('folderB/file0.txt', contentA);
+		testFolder.write('folderB/file1.txt', randomStrings.next());
+		testFolder.write('folderB/file3.txt', randomStrings.next());
+		testFolder.write('folderB/file4.txt', contentB);
+
+		testFolder.write('folderA/nested/foo.txt', randomStrings.next());
+		testFolder.write('folderA/nested/bar.txt', randomStrings.next());
+
+		testFolder.write('folderA/identicalX.txt', contentC);
+		testFolder.write('folderA/identicalY.txt', contentC);
+		testFolder.write('folderB/identicalX.txt', contentC);
+		testFolder.write('folderB/identicalY.txt', contentC);
+
+		const folderA = new ToryFolder(testFolder.path('folderA'));
+		const folderB = new ToryFolder(testFolder.path('folderB'));
+
+		t.deepEqual(simplifyToryDiff(folderA.compareFilesShallow(folderB)), {
+			extraFilesOnFirst: ['file2.txt'],
+			extraFilesOnSecond: ['file3.txt'],
+			modifiedFiles: ['file1.txt'],
+			renamedFiles: [{ first: 'file3.txt', second: 'file4.txt' }],
+			unchangedFiles: ['file0.txt', 'identicalX.txt', 'identicalY.txt']
+		});
+
+		t.deepEqual(simplifyToryDiff(folderB.compareFilesShallow(folderA)), {
+			extraFilesOnFirst: ['file3.txt'],
+			extraFilesOnSecond: ['file2.txt'],
+			modifiedFiles: ['file1.txt'],
+			renamedFiles: [{ first: 'file4.txt', second: 'file3.txt' }],
+			unchangedFiles: ['file0.txt', 'identicalX.txt', 'identicalY.txt']
+		});
+
+		await attemptDelete(testFolder.cwd());
 	});
+});
 
-	await attemptDelete(testFolder.cwd());
+test('ToryFolder#compareFiles', async t => {
+	const TEST_FOLDER_SIZE = 200;
+	await pRepeatLogging(t, 20, async () => {
+		const pathA = (await getRandomTestFolder(TEST_FOLDER_SIZE)).path;
+		const pathB = tempy.directory();
+
+		await jetpack.copyAsync(pathA, pathB, { overwrite: true });
+
+		let folderA = new ToryFolder(pathA);
+		let folderB = new ToryFolder(pathB);
+
+		let diff = folderA.compareFiles(folderB);
+		let mirroredDiff = folderB.compareFiles(folderA);
+
+		/// t.log(simplifyToryDiff(diff));
+		t.true(diff.noDiffs());
+		t.true(mirroredDiff.noDiffs());
+
+		const deletedFileNames: string[] = [];
+		let deleteFlag = true;
+		await pMap(
+			folderA.toDFSFilesRecursiveIterable(),
+			async file => {
+				if (deleteFlag) {
+					deletedFileNames.push(file.name);
+					/// t.log(`Deleting '${file.name}'`);
+					await jetpack.removeAsync(file.absolutePath);
+				}
+
+				if (Math.random() < 0.25) {
+					deleteFlag = !deleteFlag;
+				}
+			},
+			{ concurrency: 8 }
+		);
+
+		t.true(diff.noDiffs());
+		t.true(mirroredDiff.noDiffs());
+
+		// Since the ToryFolders were created before deletion, performing a new diff will not notice the difference!
+		diff = folderA.compareFiles(folderB);
+		mirroredDiff = folderB.compareFiles(folderA);
+		t.true(diff.noDiffs());
+		t.true(mirroredDiff.noDiffs());
+
+		folderA = new ToryFolder(pathA);
+		folderB = new ToryFolder(pathB);
+
+		diff = folderA.compareFiles(folderB);
+		mirroredDiff = folderB.compareFiles(folderA);
+		/// t.log(simplifyToryDiff(diff));
+		t.false(diff.noDiffs());
+		t.false(mirroredDiff.noDiffs());
+
+		t.deepEqual(
+			sort(diff.extraFilesOnSecond.map(x => x.name)),
+			sort(deletedFileNames)
+		);
+
+		await pMap([pathA, pathB], attemptDelete);
+	});
 });
 
 test('ToryFolder#toDFSFilesRecursiveIterable', async t => {
-	const { fileNames, path } = await getRandomTestFolder(100);
-	const folder = new ToryFolder(path);
+	const TEST_FOLDER_SIZE = 300;
+	await pRepeatLogging(t, 15, async () => {
+		const { fileNames, path } = await getRandomTestFolder(TEST_FOLDER_SIZE);
+		const folder = new ToryFolder(path);
 
-	const result = [...folder.toDFSFilesRecursiveIterable()].map(f => f.name);
+		const result = [...folder.toDFSFilesRecursiveIterable()].map(f => f.name);
 
-	t.deepEqual(
-		sortLexicographically(result),
-		sortLexicographically(fileNames)
-	);
+		t.is(result.length, TEST_FOLDER_SIZE);
 
-	await attemptDelete(path);
+		t.deepEqual(
+			sort(result),
+			sort(fileNames)
+		);
+
+		await attemptDelete(path);
+	});
 });
 
 test('Example from readme', async t => {
-	const { fileNames, folderNames, path } = await getRandomTestFolder(100);
-	const folder = new ToryFolder(path);
+	const TEST_FOLDER_SIZE = 100;
+	await pRepeatLogging(t, 30, async () => {
+		const { fileNames, folderNames, path } = await getRandomTestFolder(TEST_FOLDER_SIZE);
+		const folder = new ToryFolder(path);
 
-	let shallowCount = 0;
+		let shallowCount = 0;
 
-	for (const filer of folder) {
-		t.truthy(filer.name);
-		if (filer instanceof ToryFile) {
-			t.truthy(filer.getSize());
-			t.truthy(filer.getSha256());
-		} else {
-			t.true(filer instanceof ToryFolder);
+		for (const filer of folder) {
+			t.truthy(filer.name);
+			if (filer instanceof ToryFile) {
+				t.truthy(filer.getSize());
+				t.truthy(filer.getHash());
+			} else {
+				t.true(filer instanceof ToryFolder);
+			}
+
+			shallowCount++;
 		}
 
-		shallowCount++;
-	}
+		t.is(shallowCount, jetpack.list(path)!.length);
 
-	t.is(shallowCount, jetpack.list(path)!.length);
+		let deepFileCount = 0;
+		const deepNames: string[] = [];
+		const deepFileNames: string[] = [];
 
-	let deepFileCount = 0;
-	const deepNames: string[] = [];
-	const deepFileNames: string[] = [];
+		for (const filer of folder.toDefaultRecursiveIterable()) {
+			t.truthy(filer.name);
+			deepNames.push(filer.name);
+			if (filer instanceof ToryFile) {
+				t.truthy(filer.getSize());
+				t.truthy(filer.getHash());
+				t.is(filer.type, 'file');
 
-	for (const filer of folder.toDefaultRecursiveIterable()) {
-		t.truthy(filer.name);
-		deepNames.push(filer.name);
-		if (filer instanceof ToryFile) {
-			t.truthy(filer.getSize());
-			t.truthy(filer.getSha256());
-			t.is(filer.type, 'file');
-
-			deepFileNames.push(filer.name);
-			deepFileCount++;
-		} else {
-			t.true(filer instanceof ToryFolder);
+				deepFileNames.push(filer.name);
+				deepFileCount++;
+			} else {
+				t.true(filer instanceof ToryFolder);
+			}
 		}
-	}
 
-	t.deepEqual(
-		sortLexicographically(deepNames),
-		sortLexicographically([...fileNames, ...folderNames])
-	);
+		t.is(deepFileCount, TEST_FOLDER_SIZE);
+		t.is(deepNames.length, TEST_FOLDER_SIZE + folderNames.length);
 
-	t.is(deepFileCount, 100);
+		t.deepEqual(sort(deepFileNames), sort(fileNames));
 
-	await attemptDelete(path);
+		t.deepEqual(
+			sort(deepNames),
+			sort([...fileNames, ...folderNames])
+		);
+
+		await attemptDelete(path);
+	});
 });

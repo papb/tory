@@ -1,6 +1,7 @@
 import tempy = require('tempy');
 import jetpack = require('fs-jetpack');
 import { getRandomNumbersWithSumConstraint } from './get-random-numbers-with-sum-constraint';
+import { RandomStringBuilder } from './random-string-builder';
 
 interface RandomTestFolderInfo {
 	fileNames: string[];
@@ -26,17 +27,25 @@ async function fillFolderRandomly(folderAbsolutePath: string, amountOfFiles: num
 	const randomFileCounts = getRandomNumbersWithSumConstraint(1 + amountOfSubfolders, amountOfFiles);
 	const [shallowFileCount, ...subfolderFileCounts] = randomFileCounts;
 
+	const randomNameMaker = new RandomStringBuilder(0); // Names cannot repeat!
+	const randomContentMaker = new RandomStringBuilder(0.25);
+
 	// Write shallow files
 	for (let i = 0; i < shallowFileCount; i++) {
-		const fileName = `${Math.random()}`;
-		await jetpack.writeAsync(jetpack.path(folderAbsolutePath, fileName), `${Math.random()}`);
+		const fileName = randomNameMaker.next();
+		await jetpack.writeAsync(
+			jetpack.path(folderAbsolutePath, fileName),
+			randomContentMaker.next()
+		);
 		fileNames.push(fileName);
 	}
 
 	// Recursive calls for subfolders
 	for (const count of subfolderFileCounts) {
-		const subfolderAbsolutePath = jetpack.path(folderAbsolutePath, `${Math.random()}`);
+		const folderName = randomNameMaker.next();
+		const subfolderAbsolutePath = jetpack.path(folderAbsolutePath, folderName);
 		await jetpack.dirAsync(subfolderAbsolutePath);
+		folderNames.push(folderName);
 		const innerResult = await fillFolderRandomly(subfolderAbsolutePath, count);
 		fileNames.push(...innerResult.fileNames);
 		folderNames.push(...innerResult.folderNames);

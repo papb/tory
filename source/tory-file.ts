@@ -31,7 +31,7 @@ export class ToryFile implements ToryFiler {
 		return this._size!;
 	}
 
-	getSha256(): string {
+	getHash(): string {
 		this._loadIfNeeded();
 		return this._sha256!;
 	}
@@ -59,6 +59,10 @@ export class ToryFile implements ToryFiler {
 		}
 
 		this._loadIfNeeded();
+	}
+
+	sameContents(other: ToryFile): boolean {
+		return this.getSize() === other.getSize() && this.getHash() === other.getHash();
 	}
 
 	private _loadIfNeeded(): void {

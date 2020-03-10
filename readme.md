@@ -42,7 +42,7 @@ for (const filer of source.toDefaultRecursiveIterable()) {
 // Visited: tory-folder-diff.ts (file)
 
 const package = new ToryFile('package.json');
-console.log('package.json - sha256:', package.getSha256());
+console.log('package.json - sha256:', package.getHash());
 console.log('package.json - size (bytes):', package.getSize());
 console.log('package.json - modify time:', package.getModifyTime());
 // package.json - sha256: ce472d76d57b62c8e38993becd6d78fd11d6df2da800be8214a759c524edfcb4
