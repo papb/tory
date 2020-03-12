@@ -13,7 +13,7 @@ $ npm install tory
 ## Usage
 
 ```js
-const { ToryFile, ToryFolder } = require('./dist/source');
+const { ToryFile, ToryFolder } = require('tory');
 
 // This example assumes your current working directory is this
 // repo itself (although you can also pass absolute paths)
