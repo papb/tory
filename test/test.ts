@@ -3,6 +3,7 @@ import tempy = require('tempy');
 import pMap = require('p-map');
 import jetpack = require('fs-jetpack');
 import { JsonObject } from 'type-fest';
+import { FSJetpack } from 'fs-jetpack/types';
 import tory from '../source';
 import { sortLexicographically as sort } from '../source/helpers/sort-lexicographically';
 import { ToryFiler } from '../source/helpers/tory-filer';
@@ -38,6 +39,60 @@ test('ToryFolder (constructor)', t => {
 	t.true(result.getFiles().some(file => file.name === 'package.json'));
 	t.true(result.getSubfolders().some(subfolder => subfolder.name === 'source'));
 	t.true(result.getSubfolders().some(subfolder => subfolder.name === 'node_modules'));
+});
+
+test('ToryFolder#sameContentsShallow and ToryFolder#sameContentsDeep', async t => {
+	function sameContentsDeep(jetA: FSJetpack, jetB: FSJetpack): boolean {
+		const tfA = new ToryFolder(jetA.cwd());
+		const tfB = new ToryFolder(jetB.cwd());
+		const result1 = tfA.sameContentsDeep(tfB);
+		const result2 = tfB.sameContentsDeep(tfA);
+		t.is(result1, result2);
+		return result1;
+	}
+
+	function sameContentsShallow(jetA: FSJetpack, jetB: FSJetpack): boolean {
+		const tfA = new ToryFolder(jetA.cwd());
+		const tfB = new ToryFolder(jetB.cwd());
+		const result1 = tfA.sameContentsShallow(tfB);
+		const result2 = tfB.sameContentsShallow(tfA);
+		t.is(result1, result2);
+		return result1;
+	}
+
+	const folderA = getTempJetpack();
+	const folderB = getTempJetpack();
+
+	t.true(sameContentsShallow(folderA, folderB));
+	t.true(sameContentsDeep(folderA, folderB));
+
+	await folderA.writeAsync('a/b/c', 'foo');
+
+	t.false(sameContentsShallow(folderA, folderB));
+	t.false(sameContentsDeep(folderA, folderB));
+
+	await folderB.dirAsync('a');
+
+	t.true(sameContentsShallow(folderA, folderB));
+	t.false(sameContentsDeep(folderA, folderB));
+
+	await folderB.writeAsync('a/b/c', 'foo');
+
+	t.true(sameContentsShallow(folderA, folderB));
+	t.true(sameContentsDeep(folderA, folderB));
+
+	await folderB.dirAsync('a/z');
+
+	t.true(sameContentsShallow(folderA, folderB));
+	t.false(sameContentsDeep(folderA, folderB));
+
+	await folderB.dirAsync('y');
+
+	t.false(sameContentsShallow(folderA, folderB));
+	t.false(sameContentsDeep(folderA, folderB));
+
+	await attemptDelete(folderA.cwd());
+	await attemptDelete(folderB.cwd());
 });
 
 test('ToryFolder#toDefaultRecursiveIterable', async t => {
