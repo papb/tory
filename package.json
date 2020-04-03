@@ -16,12 +16,13 @@
 		"prepack": "npm run build",
 		"release": "np --no-2fa",
 		"test": "tsc && xo && ava",
-		"test-without-lint": "tsc && ava"
+		"test-without-lint": "tsc && ava test/test.ts"
 	},
 	"main": "dist/source",
 	"types": "dist/source",
 	"files": [
 		"dist/source",
+		"!*.map",
 		"!*.test.*"
 	],
 	"keywords": [
@@ -39,6 +40,7 @@
 		"sort-on": "^4.1.0"
 	},
 	"devDependencies": {
+		"@ava/typescript": "^1.1.1",
 		"@sindresorhus/tsconfig": "~0.7.0",
 		"@types/node": "^13.9.2",
 		"@typescript-eslint/eslint-plugin": "~2.24.0",
@@ -47,6 +49,7 @@
 		"del-cli": "^3.0.0",
 		"eslint-config-xo-typescript": "~0.26.0",
 		"np": "https://github.com/pixelastic/np/tarball/c3ab2e3b053c7da0ce40a572ca1616273ac080f8",
+		"source-map-support": "^0.5.16",
 		"tempy": "~0.5.0",
 		"type-fest": "~0.12.0",
 		"typescript": "^3.8.3",
@@ -54,6 +57,15 @@
 	},
 	"ava": {
 		"verbose": true,
+		"require": [
+			"source-map-support/register"
+		],
+		"typescript": {
+			"rewritePaths": {
+				"source/": "dist/source/",
+				"test/": "dist/test/"
+			}
+		},
 		"timeout": "2m"
 	},
 	"xo": {
@@ -67,28 +79,6 @@
 			"object-curly-spacing": [
 				"error",
 				"always"
-			],
-			"ava/no-ignored-test-files": [
-				"error",
-				{
-					"extensions": [
-						"ts"
-					],
-					"files": [
-						"!**/helpers"
-					]
-				}
-			],
-			"ava/no-import-test-files": [
-				"error",
-				{
-					"extensions": [
-						"ts"
-					],
-					"files": [
-						"!**/helpers"
-					]
-				}
 			]
 		}
 	}
