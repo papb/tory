@@ -70,7 +70,6 @@
 			"@typescript-eslint/class-literal-property-style": "off",
 			"unicorn/prevent-abbreviations": "off",
 			"unicorn/no-for-loop": "off",
-			"---ava/no-ignored-test-files": "off",
 			"linebreak-style": [
 				"error",
 				"unix"
