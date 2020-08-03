@@ -1,4 +1,4 @@
-# tory [![Build Status](https://travis-ci.com/papb/tory.svg?branch=master)](https://travis-ci.com/papb/tory)
+# tory ![Build Status](https://github.com/papb/tory/workflows/CI/badge.svg)
 
 > Your directory utility belt
 
